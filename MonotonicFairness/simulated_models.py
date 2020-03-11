@@ -13,6 +13,9 @@ from lib.simulated_data import load_data
 from matplotlib import pyplot as plt
 import pickle as pk
 
+
+with_linear = True
+
 fig, ax = plt.subplots(2,2,figsize=(10,10))
 
 for fn in range(4):
@@ -26,6 +29,15 @@ for fn in range(4):
     Y_train = data['data_train'][:, data['Y_col']:data['Y_col']+1].astype(np.number)
     Y_test  = data['data_test' ][:, data['Y_col']:data['Y_col']+1].astype(np.number)
     
+    Y_train_orig = Y_train.copy()
+    Y_test_orig  = Y_test.copy()
+    beta = None
+    # i.e. train on the residuals
+    if with_linear:
+        beta = np.linalg.inv(X_train.T @ X_train) @ (X_train.T @ Y_train)
+        Y_train = Y_train - X_train @ beta
+        Y_test  = Y_test  - X_test @ beta
+  
     n, x_dim = X_train.shape
 
     # setup iterator
@@ -66,10 +78,13 @@ for fn in range(4):
     )
     
     n_epochs = 50
-   
+    if with_linear:
+        lin = " + Linear Function"
+    else:
+        lin = ""
     results = {
-        'Non-mono. NN': {'model': fnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'r'},
-        'Mono. NN': {'model': mnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'g--'}
+        'Non-mono. NN' + lin: {'model': fnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'r'},
+        'Mono. NN' + lin: {'model': mnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'g--'}
     }
     with tf.Session() as sess:
         # train each model
@@ -88,9 +103,12 @@ for fn in range(4):
             print(model)
             res = results[model]
             m = res['model']
-            sess.run(iterator.initializer, feed_dict={X_tf:X_test, Y_tf:Y_test})
+            sess.run(iterator.initializer, feed_dict={X_tf:X_test, Y_tf:Y_test_orig})
             for j in range(int(X_test.shape[0]/batch_size)+1):
                 X_test_batch, Y_test_batch, y_pred_batch = sess.run([m.X_tf,m.Y_tf,m.Yhat_tf])
+                # the true prediction includes linear
+                if with_linear:
+                    y_pred_batch = y_pred_batch + X_test_batch @ beta
                 res['X'].append(X_test_batch.reshape(-1,1))
                 res['Y'].append(Y_test_batch.reshape(-1,1))
                 res['Y_pred'].append(y_pred_batch.reshape(-1,1))

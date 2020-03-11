@@ -6,3 +6,7 @@ We have modified this from the following repository: https://github.com/throwawa
 # UPDATED for simulated data
 
 ![Simulation](./data/results.png)
+
+# F\_linear + F\_Monotonic
+
+![Simulation with Linear](./data/results_linear_mono.png)
