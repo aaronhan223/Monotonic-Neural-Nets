@@ -4,5 +4,5 @@ Folder that contains all code when using TF-Lattice to enforce monotonic constra
 
 # Simulated data with F\_linear + F\_lattice
 
-![Simulation](./data/results.png)
+![Simulation](./results/results.png)
 
