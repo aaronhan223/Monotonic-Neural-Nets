@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 def generate_f1(n=1000,
                 sigma=0.3):
-    X = np.linspace(-2,2,num=n)
+    X = np.linspace(0.1,4,num=n)
     epsilon = np.random.normal(loc=0.0,scale=sigma,size=X.shape)
-    return X, np.abs(X) + epsilon
+    return X, .5 * np.log(X) + epsilon
    
 def generate_f2(n=1000,
                 sigma=0.3):

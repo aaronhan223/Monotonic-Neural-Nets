@@ -34,10 +34,13 @@ for fn in range(4):
         beta = None
         # i.e. train on the residuals
         if with_linear:
-            beta = np.linalg.inv(X_train.T @ X_train) @ (X_train.T @ Y_train)
-            Y_train = Y_train - X_train @ beta
-            Y_test  = Y_test  - X_test @ beta
-      
+            X_train_bias = np.tile(X_train, (1,2))
+            X_train_bias[:,0] **= 0 # make column of ones for bias
+            beta = np.linalg.inv(X_train_bias.T @ X_train_bias) @ (X_train_bias.T @ Y_train)
+            beta_0 = beta[0]
+            beta = beta[1:2].reshape(1,1)
+            Y_train = Y_train - X_train @ beta - beta_0
+            Y_test = Y_test - X_test @ beta - beta_0
         min_label, max_label = float(np.min(Y_train)), float(np.max(Y_train))
         print(with_linear, min_label,max_label)
         n, x_dim = X_train.shape
@@ -105,7 +108,7 @@ for fn in range(4):
         )
         pred = model.predict(X_test) 
         if with_linear:
-            pred += X_test @ beta 
+            pred += X_test @ beta + beta_0 
         results['1D Lattice' + lin] = {'model': model, 
                                        'X': X_test, 
                                        'Y': Y_test, 

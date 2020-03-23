@@ -318,7 +318,8 @@ class Monotone_Feedforward_Neural_Network:
             while True:
                 _, loss = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
         except tf.errors.OutOfRangeError:
-            print("Training finished")
+            #print("Training finished")
+            pass
         self.save_vars()
         return loss
     
