@@ -283,8 +283,11 @@ class Monotone_Feedforward_Neural_Network:
         positive_func= lambda w: 1. + tf.nn.elu(w - 1.),
         enforce_monotonicity=True,
         X_tf=None,
-        Y_tf=None
+        Y_tf=None,
+        n_steps=100,
+        smoothing=True
     ):
+        self.n_steps=n_steps
         self.x_dim = x_dim
         self.nn_params = {
             'num_layers': num_layers,
@@ -301,10 +304,11 @@ class Monotone_Feedforward_Neural_Network:
         self.optimizer = optimizer
         self.X_tf = X_tf
         self.Y_tf = Y_tf
+        self.smoothing=smoothing
         self.build_network()
         self.initialized=False
 
-    def fit(self, sess=None, learning_rate=1e-2,):
+    def fit(self, sess=None, learning_rate=1e-2, sigma=1):
         if sess is None:
             self.sess = sess = tf.Session()
         self.sess = sess
@@ -312,7 +316,10 @@ class Monotone_Feedforward_Neural_Network:
         if self.initialized == False:
             self.initialize()
         
-        feed_dict = {self.learning_rate: learning_rate,}
+        feed_dict = {self.learning_rate: learning_rate,
+                     self.noise: np.random.normal(0, sigma, self.n_steps),
+                     #self.noise: np.zeros((self.n_steps))
+                     }
         # go through minibatches
         try:
             while True:
@@ -331,11 +338,31 @@ class Monotone_Feedforward_Neural_Network:
         self.initialized = True
 
     def build_network(self):
-        self.Yhat_tf, self.vars = monotone_ffnn(
-            input_data=self.X_tf,
-            reuse=False,
-            **self.nn_params
-        )
+        self.noise = tf.placeholder(shape=[self.n_steps], dtype=tf.float32)
+        if self.smoothing:
+            self.Y_hats = []
+            self.vars = None
+            # monte carlo graph
+            for i in range(self.n_steps):
+                yhat, v = monotone_ffnn(
+                        input_data = self.X_tf + self.noise[i],
+                        reuse=True if i > 0 else False,
+                        **self.nn_params
+                )
+                if self.vars is None:
+                    self.vars = v
+                else:
+                    assert v == self.vars
+                self.Y_hats.append(yhat)
+            self.Y_hats = tf.concat(self.Y_hats, axis=1)
+            self.Yhat_tf = tf.reduce_mean(self.Y_hats, 1)
+        else:
+            self.Yhat_tf, self.vars = monotone_ffnn(
+                input_data=self.X_tf,
+                reuse=False,
+                **self.nn_params
+            )
+        
         mse = tf.keras.losses.MeanSquaredError()
         self.loss = mse(self.Y_tf, self.Yhat_tf)
 

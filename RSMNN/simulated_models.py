@@ -31,7 +31,7 @@ for k,fn in enumerate(range(4)):
     print(now(), fn)
     ops.reset_default_graph()
 
-    data, n_sample, lower, upper = load_data(n=100, lower=-2, upper=2, fn=fn)
+    data, n_sample, lower, upper = load_data(n=250, lower=-2, upper=2, fn=fn)
 
     X_train = data['data_train'][:, data['X_cols']].astype(np.number)
     X_test  = data['data_test' ][:, data['X_cols']].astype(np.number)
@@ -82,7 +82,8 @@ for k,fn in enumerate(range(4)):
         enforce_monotonicity=False,  # what matters
         X_tf=X_trn,
         Y_tf=Y_trn,
-        var_scope='ffnn'
+        var_scope='ffnn',
+        smoothing=False
     )
     # monotonic
     mnn = Monotone_Feedforward_Neural_Network(
@@ -92,23 +93,38 @@ for k,fn in enumerate(range(4)):
         enforce_monotonicity=True,
         X_tf=X_trn,
         Y_tf=Y_trn,
-        var_scope='mnn'
+        var_scope='mnn',
+        smoothing=False
     )
+    smooth_nn = Monotone_Feedforward_Neural_Network(
+        x_dim=x_dim,
+        activate_last_layer=False,
+        enforce_monotonicity=False,  # what matters
+        X_tf=X_trn,
+        Y_tf=Y_trn,
+        var_scope='smooth_nn',
+        smoothing=True,
+        n_steps=100
+    )
+
     
-    n_epochs = 50
+    n_epochs = 100
     if with_linear:
         lin = " + Linear Function"
     else:
         lin = ""
     results = {
         'Linear Function': {'model': lambda x: x @ beta + beta_0, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'purple'},
-        'Non-mono. NN' + lin: {'model': fnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'r'},
+#        'Non-mono. NN' + lin: {'model': fnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'r'},
         'Mono. NN' + lin: {'model': mnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'g--'},
-        'Random smoothing NN' + lin: {'model': fnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'y'}
+        'Random smoothing NN' + lin: {'model': smooth_nn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'y'}
     }
 
     with tf.Session() as sess:
         # train each model
+        sigma_space, sigma, bounded = np.logspace(-2, 2), 1 / abs(beta[0][0]), True
+        sigma = 0.001
+        print("sigma:", sigma)
         for model in results:
             if model == 'Linear Function':
                 continue
@@ -117,10 +133,9 @@ for k,fn in enumerate(range(4)):
                 # Step 1, initialize dataset
                 sess.run(iterator.initializer, feed_dict={X_tf: X_train, Y_tf: Y_train})
                 # Step 2, train models
-                MSE_loss = curr.fit(sess=sess, learning_rate=1e-2)
+                MSE_loss = curr.fit(sess=sess, learning_rate=1e-2, sigma=sigma)
+            print(model, MSE_loss)
         # TODO: sigma should not be 0 when no appropriate, should make some judgement to choose the most appropriate sigma!
-        sigma_space, sigma, bounded = np.logspace(-2, 2), 1 / abs(beta[0][0]), True
-        print("sigma:", sigma)
         # print('Finding appropriate sigma...\n')
         # for s in tqdm(sigma_space):
         #     if bounded:
@@ -137,7 +152,18 @@ for k,fn in enumerate(range(4)):
             m = res['model']
             print(beta, beta_0)
             if 'smoothing' in model:
-                cumsum, n_repeat = np.empty((n_sample, 1)), 500
+                sess.run(iterator.initializer, feed_dict={X_tf: X_test, Y_tf: Y_test_orig})
+                noise = np.random.normal(0,sigma,m.n_steps)
+                #noise = np.zeros((m.n_steps))
+                X_test_batch, Y_test_batch, Y_hats, y_pred_batch = sess.run([m.X_tf, m.Y_tf, m.Y_hats,m.Yhat_tf], feed_dict={m.noise: noise})
+          #      print(Y_hats, y_pred_batch)
+                if with_linear:
+                    y_pred_batch = y_pred_batch + X_test_batch @ beta + beta_0
+                res['X'] = X_test_batch.reshape(-1, 1)
+                res['Y'] = Y_test_batch.reshape(-1, 1)
+                res['Y_pred'] = y_pred_batch.reshape(-1, 1)
+                '''
+                cumsum, n_repeat = np.empty((n_sample, 1)), 5000
                 for i in range(n_repeat):
                     rand_noise = np.zeros_like(X_test) if i == 0 else np.random.normal(0, sigma, 1)
                     # TODO: modify this, if run on iterator.initializer, then feed for X_tf and Y_tf are mini-batches
@@ -155,6 +181,7 @@ for k,fn in enumerate(range(4)):
                         # print(np.average(np.squeeze(y_pred_batch.reshape(-1, 1) - res['Y'])))
                         cumsum += y_pred_batch.reshape(-1, 1)
                 res['Y_pred'] = cumsum / (n_repeat - 1)
+                '''
             elif model=='Linear Function':
                 res['X'] = X_test
                 res['Y'] = Y_test_orig
