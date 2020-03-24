@@ -115,7 +115,7 @@ for k,fn in enumerate(range(4)):
         lin = ""
     results = {
         'Linear Function': {'model': lambda x: x @ beta + beta_0, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'purple'},
-#        'Non-mono. NN' + lin: {'model': fnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'r'},
+        'Non-mono. NN' + lin: {'model': fnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'r'},
         'Mono. NN' + lin: {'model': mnn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'g--'},
         'Random smoothing NN' + lin: {'model': smooth_nn, 'X': [], 'Y': [], 'Y_pred': [], 'marker': 'y'}
     }
@@ -123,7 +123,7 @@ for k,fn in enumerate(range(4)):
     with tf.Session() as sess:
         # train each model
         sigma_space, sigma, bounded = np.logspace(-2, 2), 1 / abs(beta[0][0]), True
-        sigma = 0.001
+#        sigma = 1
         print("sigma:", sigma)
         for model in results:
             if model == 'Linear Function':
