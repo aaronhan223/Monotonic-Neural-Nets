@@ -325,7 +325,6 @@ class Monotone_Feedforward_Neural_Network:
             while True:
                 _, loss = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
         except tf.errors.OutOfRangeError:
-            #print("Training finished")
             pass
         self.save_vars()
         return loss
@@ -340,9 +339,10 @@ class Monotone_Feedforward_Neural_Network:
     def build_network(self):
         self.noise = tf.placeholder(shape=[self.n_steps], dtype=tf.float32)
         if self.smoothing:
-            self.Y_hats = []
+#            self.Y_hats = []
             self.vars = None
             # monte carlo graph
+            self.Yhat_tf = None
             for i in range(self.n_steps):
                 yhat, v = monotone_ffnn(
                         input_data = self.X_tf + self.noise[i],
@@ -353,9 +353,16 @@ class Monotone_Feedforward_Neural_Network:
                     self.vars = v
                 else:
                     assert v == self.vars
-                self.Y_hats.append(yhat)
-            self.Y_hats = tf.concat(self.Y_hats, axis=1)
-            self.Yhat_tf = tf.reduce_mean(self.Y_hats, 1)
+                if self.Yhat_tf is None:
+                    self.Yhat_tf = yhat
+                else:
+                    self.Yhat_tf += yhat
+#                self.Y_hats.append(yhat)
+#            self.Y_hats = tf.concat(self.Y_hats, axis=1)
+ #           self.Yhat_tf = tf.reduce_mean(self.Y_hats, 1)
+#            self.Yhat_tf = self.Y_hats[0]
+            self.Yhat_tf = self.Yhat_tf/self.n_steps
+            self.Y_hats = self.Yhat_tf
         else:
             self.Yhat_tf, self.vars = monotone_ffnn(
                 input_data=self.X_tf,
